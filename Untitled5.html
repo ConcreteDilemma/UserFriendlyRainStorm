@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Psychedelic ASCII Weather – WKW</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #000;
+    }
+
+    #effectLayer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 999999;
+      overflow: hidden;
+
+      /* Wong Kar Wai style background wash */
+      background:
+        radial-gradient(circle at 20% 10%,
+          rgba(255, 60, 80, 0.35),     /* neon crimson */
+          transparent 55%),
+        radial-gradient(circle at 80% 85%,
+          rgba(20, 130, 70, 0.35),     /* jade green */
+          transparent 55%),
+        radial-gradient(circle at 50% 120%,
+          rgba(255, 120, 40, 0.25),    /* warm tangerine */
+          transparent 70%);
+
+      animation: wkwHue 60s linear infinite;
+    }
+
+    @keyframes wkwHue {
+      0%   { filter: hue-rotate(0deg); }
+      100% { filter: hue-rotate(360deg); }
+    }
+
+    .glyph {
+      position: absolute;
+      font-family: "Courier New", monospace;
+      white-space: pre;
+      line-height: 1.1;
+      will-change: transform, opacity, filter;
+    }
+
+    .cloud {
+      text-shadow: 0 0 4px rgba(0, 0, 0, 0.35);
+    }
+
+    .fog {
+      opacity: 0.06;
+      text-shadow: 0 0 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .heat {
+      text-shadow: 0 0 10px rgba(0, 0, 0, 0.45);
+    }
+  </style>
+</head>
+<body>
+
+<div id="effectLayer"></div>
+
+<script>
+  const layer = document.getElementById("effectLayer");
+
+  const cloudArts = [
+`         .-~~~~-.
+      .-~        ~-.
+     /  .-~~~~-.    \\
+    /  /  .-.   \\    \\
+   (  (  (   )   )    )
+    \\  \\  '-'   /   /
+     \\  '~~~~~~'   /
+      '-----------'
+         |  |  |
+         |  |  |
+         .  .  .`,
+
+`        . . . .        .
+      .             .
+    .    (     )        .
+   .   (         )       .
+      (           )
+       (         )
+        '.___.'
+          |   |
+        . | . | .
+          |   |
+        . . . . .`,
+
+`          .-.
+       .-(   )-.
+     .(   (     )   .
+    (   (       )    )
+     '._(     )._.'
+            |   |
+        .   |   |   .
+          . |   | .
+        .   .   .   .`
+  ];
+
+  const fogArt = `
+░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░`;
+
+  const heatArt = `
+···········
+· ••••••• ·
+· ••••••• ·
+·  •••••  ·
+···········`;
+
+  function randomBetween(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+  function spawnCloud(layerType) {
+    const el = document.createElement("div");
+    el.className = "glyph cloud";
+
+    const art = cloudArts[Math.floor(Math.random() * cloudArts.length)];
+    el.textContent = art;
+
+    const isStorm = Math.random() < 0.12 && layerType === "foreground";
+
+    const startX = randomBetween(-10, 100);
+    const midY = randomBetween(
+      layerType === "foreground" ? 20 : 5,
+      layerType === "foreground" ? 70 : 55
+    );
+    const driftX = startX + randomBetween(-15, 15);
+    const endX = driftX + randomBetween(-10, 10);
+
+    const baseDuration = layerType === "foreground"
+      ? randomBetween(20000, 36000)
+      : randomBetween(32000, 52000);
+
+    const duration = isStorm ? baseDuration * 0.7 : baseDuration;
+
+    const baseScale = layerType === "foreground"
+      ? randomBetween(0.9, 1.6)
+      : randomBetween(0.6, 1.0);
+
+    const scale = isStorm ? baseScale * 1.6 : baseScale;
+
+    const rotation = randomBetween(-6, 6);
+
+    // pigment logic
+    let hue = randomBetween(0, 360);
+    let sat = 80;
+    let light = 60;
+
+    if (isStorm) {
+      hue = randomBetween(290, 360);
+      sat = 95;
+      light = 65;
+    } else if (layerType === "background") {
+      light = 72;
+      sat = 70;
+    }
+
+    el.style.color = `hsl(${hue}, ${sat}%, ${light}%)`;
+    el.style.fontSize = (isStorm ? randomBetween(18, 26) : randomBetween(12, 19)) + "px";
+    el.style.transform =
+      `translate(${startX}vw, -30vh) scale(${scale}) rotate(${rotation}deg)`;
+    el.style.opacity = "0";
+
+    layer.appendChild(el);
+
+    const pathAnimation = el.animate(
+      [
+        {
+          opacity: 0,
+          transform:
+            `translate(${startX}vw, -30vh) scale(${scale}) rotate(${rotation}deg)`
+        },
+        {
+          opacity: isStorm ? 1 : (layerType === "foreground" ? 0.9 : 0.6),
+          transform:
+            `translate(${driftX}vw, ${midY}vh) scale(${scale}) rotate(${rotation}deg)`
+        },
+        {
+          opacity: 0,
+          transform:
+            `translate(${endX}vw, 125vh) scale(${scale}) rotate(${rotation}deg)`
+        }
+      ],
+      {
+        duration: duration,
+        easing: "ease-in-out",
+        fill: "forwards"
+      }
+    );
+
+    // hue cycle, long and slow
+    el.animate(
+      [
+        { filter: "hue-rotate(0deg)" },
+        { filter: "hue-rotate(360deg)" }
+      ],
+      {
+        duration: duration * 3,
+        iterations: Infinity
+      }
+    );
+
+    pathAnimation.onfinish = () => el.remove();
+  }
+
+  function spawnFog() {
+    const el = document.createElement("div");
+    el.className = "glyph fog";
+    el.textContent = fogArt;
+
+    const startX = randomBetween(-20, 80);
+    const endX = startX + randomBetween(-10, 10);
+    const startY = randomBetween(-10, 80);
+    const endY = startY + randomBetween(-5, 10);
+
+    const scale = randomBetween(1.8, 3.2);
+    const duration = randomBetween(50000, 90000);
+
+    const hue = randomBetween(180, 320);
+    const sat = 70;
+    const light = 70;
+
+    el.style.color = `hsl(${hue}, ${sat}%, ${light}%)`;
+    el.style.fontSize = randomBetween(14, 20) + "px";
+    el.style.transform =
+      `translate(${startX}vw, ${startY}vh) scale(${scale})`;
+
+    layer.appendChild(el);
+
+    const animation = el.animate(
+      [
+        {
+          opacity: 0,
+          transform:
+            `translate(${startX}vw, ${startY}vh) scale(${scale})`
+        },
+        {
+          opacity: 0.1,
+          transform:
+            `translate(${(startX + endX) / 2}vw, ${(startY + endY) / 2}vh) scale(${scale})`
+        },
+        {
+          opacity: 0,
+          transform:
+            `translate(${endX}vw, ${endY}vh) scale(${scale})`
+        }
+      ],
+      {
+        duration: duration,
+        easing: "ease-in-out",
+        fill: "forwards"
+      }
+    );
+
+    el.animate(
+      [
+        { filter: "hue-rotate(0deg)" },
+        { filter: "hue-rotate(360deg)" }
+      ],
+      {
+        duration: duration * 2,
+        iterations: Infinity
+      }
+    );
+
+    animation.onfinish = () => el.remove();
+  }
+
+  function spawnHeat() {
+    const el = document.createElement("div");
+    el.className = "glyph heat";
+    el.textContent = heatArt;
+
+    const startX = randomBetween(0, 100);
+    const endX = startX + randomBetween(-5, 5);
+    const startY = randomBetween(60, 110);
+    const endY = startY - randomBetween(20, 40);
+
+    const scale = randomBetween(1.4, 2.0);
+    const duration = randomBetween(30000, 60000);
+
+    const hue = randomBetween(0, 80); // warm band
+    const sat = 100;
+    const light = randomBetween(55, 70);
+
+    el.style.color = `hsl(${hue}, ${sat}%, ${light}%)`;
+    el.style.fontSize = randomBetween(14, 20) + "px";
+    el.style.transform =
+      `translate(${startX}vw, ${startY}vh) scale(${scale})`;
+    el.style.opacity = "0";
+
+    layer.appendChild(el);
+
+    const animation = el.animate(
+      [
+        {
+          opacity: 0,
+          transform:
+            `translate(${startX}vw, ${startY}vh) scale(${scale})`
+        },
+        {
+          opacity: 0.9,
+          transform:
+            `translate(${(startX + endX) / 2}vw, ${(startY + endY) / 2}vh) scale(${scale})`
+        },
+        {
+          opacity: 0,
+          transform:
+            `translate(${endX}vw, ${endY}vh) scale(${scale})`
+        }
+      ],
+      {
+        duration: duration,
+        easing: "ease-in-out",
+        fill: "forwards"
+      }
+    );
+
+    el.animate(
+      [
+        { filter: "hue-rotate(-30deg)" },
+        { filter: "hue-rotate(30deg)" }
+      ],
+      {
+        duration: duration * 1.5,
+        direction: "alternate",
+        iterations: Infinity
+      }
+    );
+
+    animation.onfinish = () => el.remove();
+  }
+
+  // initial field
+  for (let i = 0; i < 24; i++) spawnCloud("foreground");
+  for (let i = 0; i < 18; i++) spawnCloud("background");
+  for (let i = 0; i < 4; i++) spawnFog();
+  for (let i = 0; i < 6; i++) spawnHeat();
+
+  // continuous weather
+  setInterval(() => spawnCloud("foreground"), 650);
+  setInterval(() => spawnCloud("background"), 1300);
+  setInterval(spawnFog, 9000);
+  setInterval(spawnHeat, 7000);
+</script>
+
+</body>
+</html>
